@@ -11,4 +11,4 @@ set LibDirectories=-LIBPATH:%SDL_LIB%
 set CompilerFlags= -nologo -W4 -WX -Od -FS /Fm %IncludeDirectories% -Zi -EHsc -MD /D "_WINDOWS"
 set LinkerFlags=-nologo -DEBUG %LibDirectories%
 
-cl main.cpp %CompilerFlags% /link %LinkerFlags% -SUBSYSTEM:CONSOLE SDL2.lib SDL2main.lib shell32.lib
+cl chip8.cpp %CompilerFlags% /link %LinkerFlags% -SUBSYSTEM:CONSOLE SDL2.lib SDL2main.lib shell32.lib

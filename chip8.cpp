@@ -20,7 +20,7 @@
 
 // WIP
 //
-// - Check if the rom's size is less than the available memory
+// - Create the buffer that will hold the interpreter's memory
 // - Copy the loaded ROM to the interpreter's memory
 
 // - Create a PrintHelp function and use it in ParseCommandLineArguments
@@ -63,8 +63,6 @@ typedef i32      b32;
 #include <string.h>
 
 #include <SDL.h>
-
-#include <windows.h>
 
 void ParseCommandLineArguments(i32 Argc, char **Argv, char **RomFilename)
 {
@@ -113,23 +111,25 @@ b32 LoadRomToMemory(char *Filename, u8 *Buffer, size_t *RomSize)
 
     FILE *File;
     b32 Result = fopen_s(&File, Filename, "rb");
-
     if(Result != 0) { printf("Error loading filename: %s\n", Filename); exit(1); }
 
     fseek(File, 0, SEEK_END);
     *RomSize = ftell(File);
 
-    // CHIP-8 ROMs cannot exceed 4KB – 0.5KB = 3.5KB, check for this!, return when rom is bigger than this
-    Assert(*RomSize < (4096 - 512));
+    // CHIP-8 ROMs cannot exceed 4KB – 0.5KB = 3.5KB
+    size_t AvailableMemory = 4096 - 512;
+    if(*RomSize > AvailableMemory)
+    {
+        printf("size of rom %s is bigger than available memory (%zd bytes)\n", Filename, AvailableMemory);
+        exit(1);
+    }
 
-    // Copy rom to emulator's memory
     fseek(File, 0, SEEK_SET);
     fread(Buffer, *RomSize, 1, File);
 
-    // Close the open file
     fclose(File);
 
-    return 1;
+    return true;
 }
 
 int main(int Argc, char **Argv)
@@ -143,7 +143,6 @@ int main(int Argc, char **Argv)
     // TODO: Make RomData point to 0x200 in the emulator's memory
     u8 *Buffer = (u8*)malloc(100000);
     size_t RomSize = 0;
-    ZeroMemory(Buffer, 4096);
     LoadRomToMemory(RomFilename, Buffer, &RomSize);
 
     // i32 WindowWidth = 1024;

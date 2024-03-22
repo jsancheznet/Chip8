@@ -20,15 +20,11 @@
 
 // WIP
 //
-// - Create the buffer that will hold the interpreter's memory
-// - Copy the loaded ROM to the interpreter's memory
 
-// - Create a PrintHelp function and use it in ParseCommandLineArguments
-// - Create the general purpose registers
-// - Create PC, I registers
-// - Create The Memory, 4Kb
-// - Copy the chip-8 program to RAM starting at address: 0x200
-// - Create the stack (I think it should only be used to store memory addreses)
+// - Implementar Fetch
+// - Implementar Decode
+// - Implementar Execute
+// - Create the Display array, array of bool values, maybe bits?
 // - CPU should run at a fixed rate, 700 Instructions per second? Create a new parameter to set this, default at 700 (What the website above says)
 // - Create Debug visualization that prints registers, pc, I (Maybe print to console and clear everyframe?)
 // - Implement the instructions
@@ -40,8 +36,9 @@
 //     - DXYN (Display/Draw) - This is the hardest instruction
 // - Test this newly created instructions with the IBM Logo rom.
 // - Get Dear::ImGUI Working? On a Separate Video?
+// - Store Font in memory
 
-#include <stdint.h>
+#include <cstdint>
 typedef uint8_t   u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -59,101 +56,178 @@ typedef i32      b32;
 #define Assert(Expr) assert(Expr)
 #define InvalidCodePath Assert(!"InvalidCodePath")
 
-#include <stdio.h>
-#include <string.h>
+#include <iostream>
+#include <fstream>
+#include <vector>
+
+#include "imgui.h"
+#include "imgui_impl_sdl2.h"
+#include "imgui_impl_sdlrenderer2.h"
 
 #include <SDL.h>
 
-void ParseCommandLineArguments(i32 Argc, char **Argv, char **RomFilename)
+// Globals
+b32 IsRunning = true;
+
+void LoadRomToMemory(const std::string &Filename, u8 *Buffer)
 {
-    // TODO: This is extremely basic, i should probably implement a
-    // more robust way of parsing command line arguments. But this
-    // serves for now. Revisit this in the future.
+    std::ifstream File;
+    File.open(Filename.c_str(), std::ifstream::binary);
 
-    // We always expect the first argument to be -r and the second argument a filename
-
-    // Error, print help to the screen
-    if(Argc < 3)
+    if(!File)
     {
-        printf("Error, program must be executed with a -r parameter\n");
-        printf("-r -> rom file to open\n\n");
-        printf("Example: chip8.exe -r \"my_rom.ch8\"\n");
-        exit(1);
+        std::cout << "Error opening rom " << "\"" << Filename << "\"" << std::endl;
     }
 
-    if(strcmp(Argv[1], "-r") == 0)
+    // Get the size of the file
+    File.seekg (0, File.end);
+    i32 FileSize = (i32)File.tellg();
+    File.seekg (0, File.beg);
+
+    // Memory starts at the 512 byte. The memory before this was there
+    // to hold the chip8 interpreter and fonts.
+    int AvailableMemory = 4096 - 512;
+    if(FileSize > AvailableMemory)
     {
-        *RomFilename = Argv[2];
-        if(RomFilename == nullptr)
+        std::cout << "ROM file size is bigger than available memory" << std::endl;
+        std::cout << "FileSize: " << FileSize << " bytes" << std::endl;
+        std::cout << "AvailableMemory: " << AvailableMemory << " bytes" << std::endl;
+        exit(-1);
+    }
+
+    // Read data as a block:
+    File.read((char*)Buffer, FileSize);
+    File.close();
+}
+
+void HandleInput()
+{
+    SDL_Event Event;
+    while(SDL_PollEvent(&Event))
+    {
+        ImGui_ImplSDL2_ProcessEvent(&Event);
+
+        switch(Event.type)
         {
-            printf("Error, program must be executed with a -r parameter\n");
-            printf("-r -> rom file to open\n\n");
-            printf("Example: chip8.exe -r \"my_rom.ch8\"\n");
-            exit(1);
+            case SDL_QUIT:
+            {
+                IsRunning = false;
+                break;
+            }
+
+            case SDL_KEYDOWN:
+            {
+                if(Event.key.keysym.scancode == SDL_SCANCODE_ESCAPE)
+                {
+                    IsRunning = false;
+                }
+                break;
+            }
+            case SDL_KEYUP:
+            {
+                break;
+            }
+            default:
+            {
+                break;
+            }
         }
-    }
-    else
-    {
-        // first argument is not 0, assume it all went wrong for
-        // now. This should be cleaned up after we have implemented a
-        // better argument parser
-        printf("Error, program must be executed with a -r parameter\n");
-        printf("-r -> rom file to open\n\n");
-        printf("Example: chip8.exe -r \"my_rom.ch8\"\n");
-        exit(1);
     }
 }
 
-// Copy loaded binary data to Data, set DataSize
-b32 LoadRomToMemory(char *Filename, u8 *Buffer, size_t *RomSize)
+void ImGui_Setup(SDL_Window *Window, SDL_Renderer *Renderer)
 {
-    // NOTE(Jsanchez): It might be better to use SDL's file abstraction layer instead of C's standard libs
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
-    FILE *File;
-    b32 Result = fopen_s(&File, Filename, "rb");
-    if(Result != 0) { printf("Error loading filename: %s\n", Filename); exit(1); }
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
 
-    fseek(File, 0, SEEK_END);
-    *RomSize = ftell(File);
+    // Setup Platform/Renderer backends
+    ImGui_ImplSDL2_InitForSDLRenderer(Window, Renderer);
+    ImGui_ImplSDLRenderer2_Init(Renderer);
 
-    // CHIP-8 ROMs cannot exceed 4KB – 0.5KB = 3.5KB
-    size_t AvailableMemory = 4096 - 512;
-    if(*RomSize > AvailableMemory)
-    {
-        printf("size of rom %s is bigger than available memory (%zd bytes)\n", Filename, AvailableMemory);
-        exit(1);
-    }
+}
 
-    fseek(File, 0, SEEK_SET);
-    fread(Buffer, *RomSize, 1, File);
+void ImGui_NewFrame()
+{
+    // Start the Dear ImGui frame
+    ImGui_ImplSDLRenderer2_NewFrame();
+    ImGui_ImplSDL2_NewFrame();
+    ImGui::NewFrame();
+}
 
-    fclose(File);
-
-    return true;
+void ImGui_Destroy()
+{
+    ImGui_ImplSDLRenderer2_Shutdown();
+    ImGui_ImplSDL2_Shutdown();
+    ImGui::DestroyContext();
 }
 
 int main(int Argc, char **Argv)
 {
-    Argc;Argv;
+    if(Argc < 2)
+    {
+        std::cout << "Error, please add a chip8 file as parameter" << std::endl;
+        std::cout << "Example: chip8.exe my_rom.ch8" << std::endl;
+        exit(-1);
+    }
+    std::string RomFilename = Argv[1];
 
-    char *RomFilename = nullptr;
+    u8 Memory[4096] = {0};
+    u16 PC;
+    u16 I;
+    u8 DelayTimer;
+    u8 SoundTimer;
+    u8 Registers[16] = {0};
+    std::vector<u16> Stack;
 
-    ParseCommandLineArguments(Argc, Argv, &RomFilename);
+    PC; I; DelayTimer; SoundTimer; Registers; Stack;
 
-    // TODO: Make RomData point to 0x200 in the emulator's memory
-    u8 *Buffer = (u8*)malloc(100000);
-    size_t RomSize = 0;
-    LoadRomToMemory(RomFilename, Buffer, &RomSize);
+    u8 *ProgramStart = Memory + 0x200;
+    LoadRomToMemory(RomFilename, ProgramStart);
 
-    // i32 WindowWidth = 1024;
-    // i32 WindowHeight = 768;
-    // SDL_Init(SDL_INIT_EVERYTHING);
-    // SDL_Window *Window = SDL_CreateWindow("Chip8 - INSERT ROM FILENAME HERE", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WindowWidth, WindowHeight, SDL_WINDOW_ALLOW_HIGHDPI);
-    // SDL_Renderer *Renderer = SDL_CreateRenderer(Window, -1, SDL_RENDERER_ACCELERATED);
-    // SDL_SetRenderDrawColor(Renderer, 255, 0, 255, 255);
-    // SDL_RenderClear(Renderer);
-    // SDL_RenderPresent(Renderer);
-    // SDL_Delay(3000);
+    i32 WindowWidth = 1024;
+    i32 WindowHeight = 768;
+    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
+
+    SDL_Window *Window = SDL_CreateWindow("Chip8 - INSERT ROM FILENAME HERE", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WindowWidth, WindowHeight, SDL_WINDOW_ALLOW_HIGHDPI);
+    SDL_Renderer *Renderer = SDL_CreateRenderer(Window, -1, SDL_RENDERER_ACCELERATED);
+
+    ImGui_Setup(Window, Renderer);
+
+    // Set the Program counter to the beggining of the loaded ROM
+    PC = Memory[512];
+
+    while(IsRunning)
+    {
+        HandleInput();
+
+        { // Fetch
+
+        }
+
+        ImGui_NewFrame();
+
+        bool yes = true;
+        ImGui::ShowDemoWindow(&yes);
+        SDL_SetRenderDrawColor(Renderer, 255, 0, 255, 255);
+        SDL_RenderClear(Renderer);
+        ImGui::Render();
+
+        ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
+        SDL_RenderPresent(Renderer);
+    }
+
+    ImGui_Destroy();
+
+    SDL_DestroyRenderer(Renderer);
+    SDL_DestroyWindow(Window);
+    SDL_Quit();
 
     return 0;
 }

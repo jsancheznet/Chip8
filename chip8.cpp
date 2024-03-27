@@ -19,7 +19,9 @@
 //
 
 // WIP
-//
+// - Cargar un rom desde el menu principal de la ventana
+// - Hacer que ImGui tenga varias ventanas abiertas y fijas!
+// - Mostrar los registers usando dear imgui
 
 // - Implementar Fetch
 // - Implementar Decode
@@ -37,6 +39,7 @@
 // - Test this newly created instructions with the IBM Logo rom.
 // - Get Dear::ImGUI Working? On a Separate Video?
 // - Store Font in memory
+// - Create a menu with ImGUI at the top of the window where we can load roms
 
 #include <cstdint>
 typedef uint8_t   u8;
@@ -66,8 +69,17 @@ typedef i32      b32;
 
 #include <SDL.h>
 
+#include "gui.cpp"
+
 // Globals
-b32 IsRunning = true;
+b32  IsRunning = true;
+u8   Memory[4096] = {0};
+u16 *PC = nullptr;
+u16 *I = nullptr;
+u8   Registers[16] = {0};
+u8   SoundTimer;
+u8   DelayTimer;
+std::vector<u16> Stack;
 
 void LoadRomToMemory(const std::string &Filename, u8 *Buffer)
 {
@@ -135,39 +147,6 @@ void HandleInput()
     }
 }
 
-void ImGui_Setup(SDL_Window *Window, SDL_Renderer *Renderer)
-{
-    // Setup Dear ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-
-    // Setup Platform/Renderer backends
-    ImGui_ImplSDL2_InitForSDLRenderer(Window, Renderer);
-    ImGui_ImplSDLRenderer2_Init(Renderer);
-
-}
-
-void ImGui_NewFrame()
-{
-    // Start the Dear ImGui frame
-    ImGui_ImplSDLRenderer2_NewFrame();
-    ImGui_ImplSDL2_NewFrame();
-    ImGui::NewFrame();
-}
-
-void ImGui_Destroy()
-{
-    ImGui_ImplSDLRenderer2_Shutdown();
-    ImGui_ImplSDL2_Shutdown();
-    ImGui::DestroyContext();
-}
-
 int main(int Argc, char **Argv)
 {
     if(Argc < 2)
@@ -177,16 +156,6 @@ int main(int Argc, char **Argv)
         exit(-1);
     }
     std::string RomFilename = Argv[1];
-
-    u8 Memory[4096] = {0};
-    u16 PC;
-    u16 I;
-    u8 DelayTimer;
-    u8 SoundTimer;
-    u8 Registers[16] = {0};
-    std::vector<u16> Stack;
-
-    PC; I; DelayTimer; SoundTimer; Registers; Stack;
 
     u8 *ProgramStart = Memory + 0x200;
     LoadRomToMemory(RomFilename, ProgramStart);
@@ -198,32 +167,33 @@ int main(int Argc, char **Argv)
     SDL_Window *Window = SDL_CreateWindow("Chip8 - INSERT ROM FILENAME HERE", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WindowWidth, WindowHeight, SDL_WINDOW_ALLOW_HIGHDPI);
     SDL_Renderer *Renderer = SDL_CreateRenderer(Window, -1, SDL_RENDERER_ACCELERATED);
 
-    ImGui_Setup(Window, Renderer);
+    GuiSetup(Window, Renderer);
 
     // Set the Program counter to the beggining of the loaded ROM
-    PC = Memory[512];
+    PC = (u16*)&Memory[512];
 
     while(IsRunning)
     {
         HandleInput();
 
-        { // Fetch
+        // Fetch
+        // u16 Instruction = *PC++;
+        // Instruction;
 
-        }
+        GuiNewFrame();
 
-        ImGui_NewFrame();
+        ShowMenuBar();
 
         bool yes = true;
         ImGui::ShowDemoWindow(&yes);
         SDL_SetRenderDrawColor(Renderer, 255, 0, 255, 255);
         SDL_RenderClear(Renderer);
         ImGui::Render();
-
         ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
         SDL_RenderPresent(Renderer);
     }
 
-    ImGui_Destroy();
+    GuiDestroy();
 
     SDL_DestroyRenderer(Renderer);
     SDL_DestroyWindow(Window);

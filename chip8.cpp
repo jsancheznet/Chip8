@@ -19,18 +19,16 @@
 //
 
 // WIP
-// - Cargar un rom desde el menu principal de la ventana
-// - Hacer que ImGui tenga varias ventanas abiertas y fijas!
 // - Mostrar los registers usando dear imgui
+// - Hacer que ImGui tenga varias ventanas abiertas y fijas!
+// - 00E0 (Clear Screen)
 
-// - Implementar Fetch
-// - Implementar Decode
-// - Implementar Execute
+// - Make the emulator loop run at 500hz
+// - Cargar un rom desde el menu principal de la ventana
 // - Create the Display array, array of bool values, maybe bits?
 // - CPU should run at a fixed rate, 700 Instructions per second? Create a new parameter to set this, default at 700 (What the website above says)
 // - Create Debug visualization that prints registers, pc, I (Maybe print to console and clear everyframe?)
 // - Implement the instructions
-//     - 00E0 (Clear Screen)
 //     - 1NNN (Jump)
 //     - 6XNN (Set Register VX)
 //     - 7XNN (Add value to register VX)
@@ -71,15 +69,6 @@ typedef i32      b32;
 
 #include "gui.cpp"
 
-// Globals
-b32  IsRunning = true;
-u8   Memory[4096] = {0};
-u16 *PC = nullptr;
-u16 *I = nullptr;
-u8   Registers[16] = {0};
-u8   SoundTimer;
-u8   DelayTimer;
-std::vector<u16> Stack;
 
 void LoadRomToMemory(const std::string &Filename, u8 *Buffer)
 {
@@ -112,7 +101,7 @@ void LoadRomToMemory(const std::string &Filename, u8 *Buffer)
     File.close();
 }
 
-void HandleInput()
+void HandleInput(b32 *IsRunning)
 {
     SDL_Event Event;
     while(SDL_PollEvent(&Event))
@@ -123,7 +112,7 @@ void HandleInput()
         {
             case SDL_QUIT:
             {
-                IsRunning = false;
+                *IsRunning = false;
                 break;
             }
 
@@ -131,7 +120,7 @@ void HandleInput()
             {
                 if(Event.key.keysym.scancode == SDL_SCANCODE_ESCAPE)
                 {
-                    IsRunning = false;
+                    *IsRunning = false;
                 }
                 break;
             }
@@ -147,8 +136,30 @@ void HandleInput()
     }
 }
 
+void EndFrame(SDL_Renderer *Renderer)
+{
+    GuiNewFrame();
+    ShowMenuBar();
+    bool yes = true; yes;
+    ImGui::ShowDemoWindow(&yes);
+    SDL_SetRenderDrawColor(Renderer, 255, 0, 255, 255);
+    SDL_RenderClear(Renderer);
+    ImGui::Render();
+    ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
+    SDL_RenderPresent(Renderer);
+}
+
 int main(int Argc, char **Argv)
 {
+
+    // Globals
+    b32  IsRunning = true;
+    u8   Memory[4096] = {0};
+    u16 *PC = nullptr;
+    u16 *I = nullptr; I;
+    u8   V[16] = {0}; V; // Registers
+    u8   SoundTimer; SoundTimer;
+
     if(Argc < 2)
     {
         std::cout << "Error, please add a chip8 file as parameter" << std::endl;
@@ -160,41 +171,126 @@ int main(int Argc, char **Argv)
     u8 *ProgramStart = Memory + 0x200;
     LoadRomToMemory(RomFilename, ProgramStart);
 
-    i32 WindowWidth = 1024;
+    i32 WindowWidth = 1366;
     i32 WindowHeight = 768;
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
-
-    SDL_Window *Window = SDL_CreateWindow("Chip8 - INSERT ROM FILENAME HERE", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WindowWidth, WindowHeight, SDL_WINDOW_ALLOW_HIGHDPI);
+    SDL_Window *Window = SDL_CreateWindow("Chip8 Emulator", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WindowWidth, WindowHeight, SDL_WINDOW_ALLOW_HIGHDPI);
     SDL_Renderer *Renderer = SDL_CreateRenderer(Window, -1, SDL_RENDERER_ACCELERATED);
 
     GuiSetup(Window, Renderer);
+
 
     // Set the Program counter to the beggining of the loaded ROM
     PC = (u16*)&Memory[512];
 
     while(IsRunning)
     {
-        HandleInput();
+        HandleInput(&IsRunning);
 
         // Fetch
-        // u16 Instruction = *PC++;
-        // Instruction;
+        u16 Instruction = *PC;
+        PC++;
 
-        GuiNewFrame();
+        u16 OpCode = (Instruction & 0x00F0) >> 4;
+        switch(OpCode)
+        {
+            case 0x0:
+            {
+                // TODO(Jsanchez): Switch between E0 and EE
+                // TODO: 00E0 clear the display
+                // TODO: 00EE return from a subroutine
+                std::cout << "0!" << std::endl;
+                break;
+            }
+            case 0x1:
+            {
+                std::cout << "1!" << std::endl;
+                break;
+            }
+            case 0x2:
+            {
+                std::cout << "2!" << std::endl;
+                break;
+            }
+            case 0x3:
+            {
+                std::cout << "3!" << std::endl;
+                break;
+            }
+            case 0x4:
+            {
+                std::cout << "4!" << std::endl;
+                break;
+            }
+            case 0x5:
+            {
+                std::cout << "5!" << std::endl;
+                break;
+            }
+            case 0x6:
+            {
+                std::cout << "6!" << std::endl;
+                break;
+            }
+            case 0x7:
+            {
+                std::cout << "7!" << std::endl;
+                break;
+            }
+            case 0x8:
+            {
+                std::cout << "8!" << std::endl;
+                break;
+            }
+            case 0x9:
+            {
+                std::cout << "9!" << std::endl;
+                break;
+            }
+            case 0xA:
+            {
+                std::cout << "A!" << std::endl;
+                break;
+            }
+            case 0xB:
+            {
+                std::cout << "B!" << std::endl;
+                break;
+            }
+            case 0xC:
+            {
+                std::cout << "C!" << std::endl;
+                break;
+            }
+            case 0xD:
+            {
+                std::cout << "D!" << std::endl;
+                break;
+            }
+            case 0xE:
+            {
+                std::cout << "E!" << std::endl;
+                break;
+            }
+            case 0xF:
+            {
+                std::cout << "F!" << std::endl;
+                break;
+            }
+            default:
+            {
+                std::cout << "OpCode: " << std::hex << OpCode << " not implemented." << std::endl;
+            }
+        }
+        // render your GUI
+        ImGui::Begin("Demo window");
+        ImGui::Button("Hello!");
+        ImGui::End();
 
-        ShowMenuBar();
-
-        bool yes = true;
-        ImGui::ShowDemoWindow(&yes);
-        SDL_SetRenderDrawColor(Renderer, 255, 0, 255, 255);
-        SDL_RenderClear(Renderer);
-        ImGui::Render();
-        ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
-        SDL_RenderPresent(Renderer);
+        EndFrame(Renderer);
     }
 
     GuiDestroy();
-
     SDL_DestroyRenderer(Renderer);
     SDL_DestroyWindow(Window);
     SDL_Quit();

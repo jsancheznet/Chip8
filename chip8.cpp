@@ -67,10 +67,20 @@ typedef i32      b32;
 
 #include <SDL.h>
 
+#include "application.cpp"
+
 #include "gui.cpp"
 
+struct chip8_interpreter
+{
+    u8   Memory[4096];
+    u16 *PC;
+    u16 *I;
+    u8   V[16];
+    u8   SoundTimer;
+};
 
-void LoadRomToMemory(const std::string &Filename, u8 *Buffer)
+void LoadRom(const std::string &Filename, u8 *Buffer)
 {
     std::ifstream File;
     File.open(Filename.c_str(), std::ifstream::binary);
@@ -101,105 +111,47 @@ void LoadRomToMemory(const std::string &Filename, u8 *Buffer)
     File.close();
 }
 
-void HandleInput(b32 *IsRunning)
-{
-    SDL_Event Event;
-    while(SDL_PollEvent(&Event))
-    {
-        ImGui_ImplSDL2_ProcessEvent(&Event);
-
-        switch(Event.type)
-        {
-            case SDL_QUIT:
-            {
-                *IsRunning = false;
-                break;
-            }
-
-            case SDL_KEYDOWN:
-            {
-                if(Event.key.keysym.scancode == SDL_SCANCODE_ESCAPE)
-                {
-                    *IsRunning = false;
-                }
-                break;
-            }
-            case SDL_KEYUP:
-            {
-                break;
-            }
-            default:
-            {
-                break;
-            }
-        }
-    }
-}
-
-void EndFrame(SDL_Renderer *Renderer)
-{
-    GuiNewFrame();
-    ShowMenuBar();
-    bool yes = true; yes;
-    ImGui::ShowDemoWindow(&yes);
-    SDL_SetRenderDrawColor(Renderer, 255, 0, 255, 255);
-    SDL_RenderClear(Renderer);
-    ImGui::Render();
-    ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
-    SDL_RenderPresent(Renderer);
-}
-
 int main(int Argc, char **Argv)
 {
+    HandleApplicationArguments(Argc, Argv);
 
-    // Globals
-    b32  IsRunning = true;
-    u8   Memory[4096] = {0};
-    u16 *PC = nullptr;
-    u16 *I = nullptr; I;
-    u8   V[16] = {0}; V; // Registers
-    u8   SoundTimer; SoundTimer;
+    application Application = {};
+    CreateApplication(&Application, "WindowTitle", 1366, 768);
 
-    if(Argc < 2)
-    {
-        std::cout << "Error, please add a chip8 file as parameter" << std::endl;
-        std::cout << "Example: chip8.exe my_rom.ch8" << std::endl;
-        exit(-1);
-    }
-    std::string RomFilename = Argv[1];
+    chip8_interpreter Interpreter = {};
+    // LoadRom(&Interpreter, Filename);
 
-    u8 *ProgramStart = Memory + 0x200;
-    LoadRomToMemory(RomFilename, ProgramStart);
+    std::string Filename = Argv[1];
+    u8 *ProgramStart = Interpreter.Memory + 0x200;
+    LoadRom(Filename, ProgramStart);
 
-    i32 WindowWidth = 1366;
-    i32 WindowHeight = 768;
-    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
-    SDL_Window *Window = SDL_CreateWindow("Chip8 Emulator", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WindowWidth, WindowHeight, SDL_WINDOW_ALLOW_HIGHDPI);
-    SDL_Renderer *Renderer = SDL_CreateRenderer(Window, -1, SDL_RENDERER_ACCELERATED);
-
-    GuiSetup(Window, Renderer);
-
+    GuiSetup(Application.Window, Application.Renderer);
 
     // Set the Program counter to the beggining of the loaded ROM
-    PC = (u16*)&Memory[512];
+    Interpreter.PC = (u16*)&Interpreter.Memory[512];
 
-    while(IsRunning)
+    while(Application.IsRunning)
     {
-        HandleInput(&IsRunning);
+        HandleInput(&Application);
 
         // Fetch
-        u16 Instruction = *PC;
-        PC++;
+        u16 Instruction = *Interpreter.PC;
+        Interpreter.PC++;
 
-        u16 OpCode = (Instruction & 0x00F0) >> 4;
+#define OPCODE(Expr) (((Expr) & 0x00F0) >> 4)
+        // Decode & Execute
+        // u16 OpCode = (Instruction & 0x00F0) >> 4;
+        u16 OpCode = OPCODE(Instruction);
         switch(OpCode)
         {
             case 0x0:
             {
+                // E000 -> 00E0 y luego & 0x0FFF
                 // TODO(Jsanchez): Switch between E0 and EE
                 // TODO: 00E0 clear the display
                 // TODO: 00EE return from a subroutine
                 std::cout << "0!" << std::endl;
+                std::cout << std::hex << Instruction << std::endl;
                 break;
             }
             case 0x1:
@@ -282,17 +234,29 @@ int main(int Argc, char **Argv)
                 std::cout << "OpCode: " << std::hex << OpCode << " not implemented." << std::endl;
             }
         }
-        // render your GUI
-        ImGui::Begin("Demo window");
-        ImGui::Button("Hello!");
-        ImGui::End();
 
-        EndFrame(Renderer);
+        // render your GUI
+
+        GuiStartFrame();
+
+        DrawRegistersWindow();
+
+        bool yes = true; yes;
+        ImGui::ShowDemoWindow(&yes);
+
+        SDL_SetRenderDrawColor(Application.Renderer, 255, 0, 255, 255);
+        SDL_RenderClear(Application.Renderer);
+        ImGui::Render();
+        ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
+        SDL_RenderPresent(Application.Renderer);
     }
 
+    printf("ASDAS!\n");
+
     GuiDestroy();
-    SDL_DestroyRenderer(Renderer);
-    SDL_DestroyWindow(Window);
+
+    SDL_DestroyRenderer(Application.Renderer);
+    SDL_DestroyWindow(Application.Window);
     SDL_Quit();
 
     return 0;

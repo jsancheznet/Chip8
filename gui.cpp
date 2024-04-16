@@ -18,7 +18,7 @@ void GuiSetup(SDL_Window *Window, SDL_Renderer *Renderer)
 
 }
 
-void GuiNewFrame()
+void GuiStartFrame()
 {
     // Start the Dear ImGui frame
     ImGui_ImplSDLRenderer2_NewFrame();
@@ -33,7 +33,14 @@ void GuiDestroy()
     ImGui::DestroyContext();
 }
 
-void ShowMenuBar()
+void DrawRegistersWindow()
+{
+    ImGui::Begin("Demo window");
+    ImGui::Button("Hello!");
+    ImGui::End();
+}
+
+void DrawMenuBar()
 {
     if (ImGui::BeginMainMenuBar())
     {

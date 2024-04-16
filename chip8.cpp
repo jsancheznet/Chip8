@@ -17,12 +17,12 @@
 //
 // TODO
 //
+// - Refactor the LoadRom function to LoadRom(chip8_interpreter *Interpreter, std::string Filename)
+// - Refactor the Gui functions until i have something i'm happy with, maybe rename them to UI instead of GUI?
 
-// WIP
 // - Mostrar los registers usando dear imgui
 // - Hacer que ImGui tenga varias ventanas abiertas y fijas!
 // - 00E0 (Clear Screen)
-
 // - Make the emulator loop run at 500hz
 // - Cargar un rom desde el menu principal de la ventana
 // - Create the Display array, array of bool values, maybe bits?

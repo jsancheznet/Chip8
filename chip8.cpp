@@ -17,8 +17,8 @@
 //
 // TODO
 //
-// - Refactor the LoadRom function to LoadRom(chip8_interpreter *Interpreter, std::string Filename)
-// - Refactor the Gui functions until i have something i'm happy with, maybe rename them to UI instead of GUI?
+
+// - Make the loop run at a configurable Hz speed
 
 // - Mostrar los registers usando dear imgui
 // - Hacer que ImGui tenga varias ventanas abiertas y fijas!
@@ -69,7 +69,7 @@ typedef i32      b32;
 
 #include "application.cpp"
 
-#include "gui.cpp"
+#include "ui.cpp"
 
 struct chip8_interpreter
 {
@@ -80,7 +80,7 @@ struct chip8_interpreter
     u8   SoundTimer;
 };
 
-void LoadRom(const std::string &Filename, u8 *Buffer)
+void LoadRom(chip8_interpreter *Interpreter, const std::string &Filename)
 {
     std::ifstream File;
     File.open(Filename.c_str(), std::ifstream::binary);
@@ -88,6 +88,7 @@ void LoadRom(const std::string &Filename, u8 *Buffer)
     if(!File)
     {
         std::cout << "Error opening rom " << "\"" << Filename << "\"" << std::endl;
+        exit(-1);
     }
 
     // Get the size of the file
@@ -106,9 +107,15 @@ void LoadRom(const std::string &Filename, u8 *Buffer)
         exit(-1);
     }
 
+    // Chip8 programs are loaded into memory at the 512 byte
+    u8 *ProgramStart = Interpreter->Memory + 0x200;
+
     // Read data as a block:
-    File.read((char*)Buffer, FileSize);
+    File.read((char*)ProgramStart, FileSize);
     File.close();
+
+    // Set the Program counter to the beggining of the loaded ROM
+    Interpreter->PC = (u16*)&Interpreter->Memory[512];
 }
 
 int main(int Argc, char **Argv)
@@ -119,16 +126,9 @@ int main(int Argc, char **Argv)
     CreateApplication(&Application, "WindowTitle", 1366, 768);
 
     chip8_interpreter Interpreter = {};
-    // LoadRom(&Interpreter, Filename);
+    LoadRom(&Interpreter, Argv[1]);
 
-    std::string Filename = Argv[1];
-    u8 *ProgramStart = Interpreter.Memory + 0x200;
-    LoadRom(Filename, ProgramStart);
-
-    GuiSetup(Application.Window, Application.Renderer);
-
-    // Set the Program counter to the beggining of the loaded ROM
-    Interpreter.PC = (u16*)&Interpreter.Memory[512];
+    UISetup(Application.Window, Application.Renderer);
 
     while(Application.IsRunning)
     {
@@ -235,25 +235,18 @@ int main(int Argc, char **Argv)
             }
         }
 
-        // render your GUI
-
-        GuiStartFrame();
-
+        // Render UI
+        UIBeginFrame();
         DrawRegistersWindow();
-
-        bool yes = true; yes;
-        ImGui::ShowDemoWindow(&yes);
+        UIEndFrame();
 
         SDL_SetRenderDrawColor(Application.Renderer, 255, 0, 255, 255);
-        SDL_RenderClear(Application.Renderer);
-        ImGui::Render();
-        ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
+        // SDL_RenderClear(Application.Renderer);
         SDL_RenderPresent(Application.Renderer);
     }
 
-    printf("ASDAS!\n");
+    UIDestroy();
 
-    GuiDestroy();
 
     SDL_DestroyRenderer(Application.Renderer);
     SDL_DestroyWindow(Application.Window);

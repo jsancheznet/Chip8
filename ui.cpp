@@ -1,6 +1,6 @@
 #pragma once
 
-void GuiSetup(SDL_Window *Window, SDL_Renderer *Renderer)
+void UISetup(SDL_Window *Window, SDL_Renderer *Renderer)
 {
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
@@ -18,7 +18,7 @@ void GuiSetup(SDL_Window *Window, SDL_Renderer *Renderer)
 
 }
 
-void GuiStartFrame()
+void UIBeginFrame()
 {
     // Start the Dear ImGui frame
     ImGui_ImplSDLRenderer2_NewFrame();
@@ -26,7 +26,13 @@ void GuiStartFrame()
     ImGui::NewFrame();
 }
 
-void GuiDestroy()
+void UIEndFrame()
+{
+    ImGui::Render();
+    ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
+}
+
+void UIDestroy()
 {
     ImGui_ImplSDLRenderer2_Shutdown();
     ImGui_ImplSDL2_Shutdown();
@@ -38,6 +44,12 @@ void DrawRegistersWindow()
     ImGui::Begin("Demo window");
     ImGui::Button("Hello!");
     ImGui::End();
+}
+
+void DrawDemoWindow()
+{
+    bool yes = true; yes;
+    ImGui::ShowDemoWindow(&yes);
 }
 
 void DrawMenuBar()
